@@ -3289,6 +3289,11 @@ def fapple_link_rtlib : Flag<["-"], "fapple-link-rtlib">, Group<f_Group>,
   HelpText<"Force linking the clang builtins runtime library">;
 
 /// ClangIR-specific options - BEGIN
+def CIR_Group : OptionGroup<"<CIR options>">;
+def cir_combine : Flag<["-"], "cir-combine">,
+  Visibility<[CC1Option]>,
+  Group<Action_Group>,
+  HelpText<"Combine host and device CIR modules into a single offload container CIR module.">;
 def clangir_disable_passes : Flag<["-"], "clangir-disable-passes">,
   Visibility<[ClangOption, CC1Option]>,
   HelpText<"Disable CIR transformations pipeline">,

@@ -68,6 +68,10 @@ enum ActionKind {
   /// Emit a .cir file
   EmitCIR,
 
+  /// Combine multiple CIR modules (e.g. host and device) into a single
+  /// container
+  CIRCombine,
+
   /// Emit a .ll file.
   EmitLLVM,
 
