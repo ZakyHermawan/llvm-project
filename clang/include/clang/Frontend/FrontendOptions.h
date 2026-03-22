@@ -72,6 +72,9 @@ enum ActionKind {
   /// container
   CIRCombine,
 
+  /// Split a combined CIR offload container into host and device modules.
+  CIRSplit,
+
   /// Emit a .ll file.
   EmitLLVM,
 
@@ -435,6 +438,17 @@ public:
   /// Specifies the output format of the AST.
   ASTDumpOutputFormat ASTDumpFormat = ADOF_Default;
 
+  /// To merge/combine host-device code in clangir
+  std::string ClangIRHostInput;
+  std::string ClangIRDeviceInput;
+  std::string ClangIRSplitInput;
+
+  /// To split host-device code in clangir
+  bool EmitSplit;
+  std::string CIRHostOutput;
+  std::string CIRDeviceOutput;
+
+
   /// The input kind, either specified via -x argument or deduced from the input
   /// file name.
   InputKind DashX;
@@ -562,8 +576,8 @@ public:
         EmitExtensionSymbolGraphs(false),
         EmitSymbolGraphSymbolLabelsForTesting(false),
         EmitPrettySymbolGraphs(false), GenReducedBMI(false),
-        UseClangIRPipeline(false), ClangIRDisablePasses(false),
-        ClangIRDisableCIRVerifier(false), ClangIREnableIdiomRecognizer(false),
+        UseClangIRPipeline(false), ClangIRDisablePasses(false), ClangIRDisableCIRVerifier(false),
+        ClangIREnableIdiomRecognizer(false), EmitSplit(false),
         TimeTraceGranularity(500), TimeTraceVerbose(false) {}
 
   /// getInputKindForExtension - Return the appropriate input kind for a file

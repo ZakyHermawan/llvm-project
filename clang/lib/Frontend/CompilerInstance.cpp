@@ -980,6 +980,23 @@ bool CompilerInstance::ExecuteAction(FrontendAction &Act) {
   llvm::sort(getCodeGenOpts().TocDataVarsUserSpecified);
   llvm::sort(getCodeGenOpts().NoTocDataVars);
 
+  if (getFrontendOpts().Inputs.empty() &&
+      (getFrontendOpts().ProgramAction == frontend::CIRCombine ||
+       getFrontendOpts().ProgramAction == frontend::CIRSplit)) {
+    // CIR combine/split consume CIR modules directly via dedicated options and
+    // do not need a source file from FrontendOptions::Inputs.
+    auto DummyInputBuffer =
+        llvm::MemoryBuffer::getMemBuffer("", "<cir-offload-action>");
+    FrontendInputFile DummyInput(*DummyInputBuffer, InputKind(Language::C));
+
+    if (Act.BeginSourceFile(*this, DummyInput)) {
+      if (llvm::Error Err = Act.Execute()) {
+        consumeError(std::move(Err)); // FIXME this drops errors on the floor.
+      }
+      Act.EndSourceFile();
+    }
+  }
+
   for (const FrontendInputFile &FIF : getFrontendOpts().Inputs) {
     // Reset the ID tables if we are reusing the SourceManager and parsing
     // regular files.

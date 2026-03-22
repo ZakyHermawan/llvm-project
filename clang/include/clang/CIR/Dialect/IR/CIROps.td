@@ -3373,6 +3373,60 @@ def CIR_GetElementOp : CIR_Op<"get_element", [
 }
 
 //===----------------------------------------------------------------------===//
+// Offload container
+//===----------------------------------------------------------------------===//
+
+def CIR_OffloadContainerOp : CIR_Op<"offload.container",
+    [NoRegionArguments, NoTerminator]> {
+  let summary = "Container for host and device CIR modules";
+  let description = [{
+    `cir.offload.container` is a top-level container used to keep host and device
+    CIR modules together for joint analysis and transformation.
+
+    The operation owns a single region. The region typically contains nested
+    `module` operations such as `module @host { ... }` and `module @device { ... }`,
+    each providing its own symbol table scope to avoid host/device symbol conflicts.
+
+    Example:
+
+    ```mlir
+    module {
+      cir.offload.container {
+        module @host {
+          // host CIR
+        }
+        module @device {
+          // device CIR
+        }
+      }
+    }
+    ```
+  }];
+
+  let arguments = (ins);
+
+  let regions = (region AnyRegion:$body);
+
+  // Use generic region printer/parser: `cir.offload.container { ... }`
+  let assemblyFormat = [{
+    $body attr-dict
+  }];
+
+  let hasVerifier = 1;
+
+  let hasLLVMLowering = false;
+
+  let extraClassDeclaration = [{
+    /// Returns the nested `module @host` if present, otherwise nullopt.
+    std::optional<mlir::ModuleOp> getHostModule();
+
+    /// Returns nested `module @device` module.
+    std::optional<mlir::ModuleOp> getDeviceModule();
+  }];
+}
+
+
+//===----------------------------------------------------------------------===//
 // FuncOp
 //===----------------------------------------------------------------------===//
 

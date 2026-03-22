@@ -4896,6 +4896,18 @@ Action *Driver::BuildOffloadingActions(Compilation &C,
       Args.hasFlag(options::OPT_fhip_emit_relocatable,
                    options::OPT_fno_hip_emit_relocatable, false);
 
+  const bool EmitCIR = Args.hasArg(options::OPT_emit_cir);
+  const bool CIRCombine = Args.hasArg(options::OPT_cir_combine);
+  const bool UseCIRCombine = EmitCIR && CIRCombine;
+
+  // For now, we only be able to combine host-device code for emit cir codegen option,
+  // since the whole codegen pipeline (after Clang IR) for this is not fully implemented yet.
+  if (CIRCombine && !EmitCIR) {
+    C.getDriver().Diag(diag::err_drv_argument_only_allowed_with)
+        << "-cir-combine" << "-emit-cir";
+    return HostAction;
+  }
+
   if (!HIPNoRDC && HIPRelocatableObj)
     C.getDriver().Diag(diag::err_opt_not_valid_with_opt)
         << "-fhip-emit-relocatable"
@@ -5067,9 +5079,12 @@ Action *Driver::BuildOffloadingActions(Compilation &C,
   if (OffloadActions.empty())
     return HostAction;
 
+  const types::ID PackagerType = UseCIRCombine ? types::TY_CIR : types::TY_Image;
+
   OffloadAction::DeviceDependences DDep;
   if (C.isOffloadingHostKind(Action::OFK_Cuda) &&
-      !Args.hasFlag(options::OPT_fgpu_rdc, options::OPT_fno_gpu_rdc, false)) {
+      !Args.hasFlag(options::OPT_fgpu_rdc, options::OPT_fno_gpu_rdc, false) &&
+      !UseCIRCombine) {
     // If we are not in RDC-mode we just emit the final CUDA fatbinary for
     // each translation unit without requiring any linking.
     Action *FatbinAction =
@@ -5084,7 +5099,7 @@ Action *Driver::BuildOffloadingActions(Compilation &C,
     DDep.add(*FatbinAction,
              *C.getOffloadToolChains<Action::OFK_HIP>().first->second, nullptr,
              Action::OFK_HIP);
-  } else if (HIPNoRDC) {
+  } else if (HIPNoRDC && !UseCIRCombine) {
     // Package all the offloading actions into a single output that can be
     // embedded in the host and linked.
     Action *PackagerAction =
@@ -5103,7 +5118,7 @@ Action *Driver::BuildOffloadingActions(Compilation &C,
     // Package all the offloading actions into a single output that can be
     // embedded in the host and linked.
     Action *PackagerAction =
-        C.MakeAction<OffloadPackagerJobAction>(OffloadActions, types::TY_Image);
+        C.MakeAction<OffloadPackagerJobAction>(OffloadActions, PackagerType);
     DDep.add(*PackagerAction, *C.getSingleOffloadToolChain<Action::OFK_Host>(),
              nullptr, C.getActiveOffloadKinds());
   }

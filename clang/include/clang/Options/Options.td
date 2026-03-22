@@ -3291,9 +3291,31 @@ def fapple_link_rtlib : Flag<["-"], "fapple-link-rtlib">, Group<f_Group>,
 /// ClangIR-specific options - BEGIN
 def CIR_Group : OptionGroup<"<CIR options>">;
 def cir_combine : Flag<["-"], "cir-combine">,
-  Visibility<[CC1Option]>,
+  Visibility<[ClangOption, CC1Option]>,
   Group<Action_Group>,
   HelpText<"Combine host and device CIR modules into a single offload container CIR module.">;
+def cir_split : Flag<["-"], "cir-split">,
+  Visibility<[ClangOption, CC1Option]>,
+  Group<Action_Group>,
+  HelpText<"Split a combined offload container CIR module into host and device CIR modules.">;
+def cir_input : Separate<["-"], "cir-input">,
+  Visibility<[CC1Option]>, Group<CIR_Group>,
+  HelpText<"Combined CIR input for -cir-split.">;
+def cir_host_input : Separate<["-"], "cir-host-input">,
+  Visibility<[CC1Option]>, Group<CIR_Group>,
+  HelpText<"Host CIR input for -cir-combine (also accepted by -cir-split for compatibility).">;
+def cir_device_input : Separate<["-"], "cir-device-input">,
+  Visibility<[CC1Option]>, Group<CIR_Group>,
+  HelpText<"Device CIR input for -cir-combine (may be repeated).">;
+def cir_emit_split : Flag<["-"], "cir-emit-split">,
+  Visibility<[ClangOption, CC1Option]>, Group<CIR_Group>,
+  HelpText<"Emit split host/device CIR instead of a combined CIR container">;
+def cir_host_output : Separate<["-"], "cir-host-output">,
+  Visibility<[CC1Option]>, Group<CIR_Group>,
+  HelpText<"Output path for host CIR when -cir-emit-split is used">;
+def cir_device_output : Separate<["-"], "cir-device-output">,
+  Visibility<[CC1Option]>, Group<CIR_Group>,
+  HelpText<"Output path for device CIR when -cir-emit-split is used">;
 def clangir_disable_passes : Flag<["-"], "clangir-disable-passes">,
   Visibility<[ClangOption, CC1Option]>,
   HelpText<"Disable CIR transformations pipeline">,

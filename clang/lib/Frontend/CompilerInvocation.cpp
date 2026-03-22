@@ -2795,6 +2795,7 @@ static const auto &getFrontendActionTable() {
       {frontend::EmitObj, OPT_emit_obj},
       {frontend::ExtractAPI, OPT_extract_api},
       {frontend::CIRCombine, OPT_cir_combine},
+      {frontend::CIRSplit, OPT_cir_split},
 
       {frontend::FixIt, OPT_fixit_EQ},
       {frontend::FixIt, OPT_fixit},
@@ -2930,6 +2931,20 @@ static void GenerateFrontendArgs(const FrontendOptions &Opts,
 
   for (const auto &ModuleFile : Opts.ModuleFiles)
     GenerateArg(Consumer, OPT_fmodule_file, ModuleFile);
+
+  if (!Opts.ClangIRHostInput.empty() &&
+      Opts.ProgramAction != frontend::CIRSplit)
+    GenerateArg(Consumer, OPT_cir_host_input, Opts.ClangIRHostInput);
+  if (!Opts.ClangIRDeviceInput.empty())
+    GenerateArg(Consumer, OPT_cir_device_input, Opts.ClangIRDeviceInput);
+  if (!Opts.ClangIRSplitInput.empty())
+    GenerateArg(Consumer, OPT_cir_input, Opts.ClangIRSplitInput);
+  if (Opts.EmitSplit)
+    GenerateArg(Consumer, OPT_cir_emit_split);
+  if (!Opts.CIRHostOutput.empty())
+    GenerateArg(Consumer, OPT_cir_host_output, Opts.CIRHostOutput);
+  if (!Opts.CIRDeviceOutput.empty())
+    GenerateArg(Consumer, OPT_cir_device_output, Opts.CIRDeviceOutput);
 
   if (Opts.AuxTargetCPU)
     GenerateArg(Consumer, OPT_aux_target_cpu, *Opts.AuxTargetCPU);
@@ -3156,6 +3171,30 @@ static bool ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
   if (Args.hasArg(OPT_fclangir) || Args.hasArg(OPT_emit_cir))
     Opts.UseClangIRPipeline = true;
 
+  if (const Arg *A = Args.getLastArg(OPT_cir_host_input))
+    Opts.ClangIRHostInput = std::string(A->getValue());
+  if (const Arg *A = Args.getLastArg(OPT_cir_device_input))
+    Opts.ClangIRDeviceInput = std::string(A->getValue());
+  if (const Arg *A = Args.getLastArg(OPT_cir_input))
+    Opts.ClangIRSplitInput = std::string(A->getValue());
+  if (Args.hasArg(OPT_cir_emit_split))
+    Opts.EmitSplit = true;
+  if (const Arg *A = Args.getLastArg(OPT_cir_host_output))
+    Opts.CIRHostOutput = std::string(A->getValue());
+  if (const Arg *A = Args.getLastArg(OPT_cir_device_output))
+    Opts.CIRDeviceOutput = std::string(A->getValue());
+
+  if (Opts.ProgramAction == frontend::CIRSplit) {
+    if (!Opts.ClangIRSplitInput.empty() && !Opts.ClangIRHostInput.empty()) {
+      Diags.Report(diag::err_drv_argument_not_allowed_with)
+          << "-cir-input" << "-cir-host-input";
+    } else if (Opts.ClangIRSplitInput.empty() && !Opts.ClangIRHostInput.empty()) {
+      // Backward compatibility for older invocations of -cir-split.
+      Opts.ClangIRSplitInput = Opts.ClangIRHostInput;
+      Opts.ClangIRHostInput.clear();
+    }
+  }
+
 #if CLANG_ENABLE_CIR
   if (Args.hasArg(OPT_clangir_disable_passes))
     Opts.ClangIRDisablePasses = true;
@@ -3253,7 +3292,11 @@ static bool ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
   // '-' is the default input if none is given.
   std::vector<std::string> Inputs = Args.getAllArgValues(OPT_INPUT);
   Opts.Inputs.clear();
-  if (Inputs.empty())
+
+  // -cir-combine and -cir-split consume CIR inputs from dedicated options,
+  // so they did not need to get input from stdin.
+  if (Inputs.empty() && Opts.ProgramAction != frontend::CIRCombine &&
+      Opts.ProgramAction != frontend::CIRSplit)
     Inputs.push_back("-");
 
   if (DashX.getHeaderUnitKind() != InputKind::HeaderUnit_None &&
@@ -4712,6 +4755,8 @@ static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {
   case frontend::RewriteTest:
   case frontend::RunAnalysis:
   case frontend::TemplightDump:
+  case frontend::CIRCombine:
+  case frontend::CIRSplit:
     return false;
 
   case frontend::DumpCompilerOptions:
@@ -4733,6 +4778,8 @@ static bool isCodeGenAction(frontend::ActionKind Action) {
   case frontend::EmitAssembly:
   case frontend::EmitBC:
   case frontend::EmitCIR:
+  case frontend::CIRCombine:
+  case frontend::CIRSplit:
   case frontend::EmitHTML:
   case frontend::EmitLLVM:
   case frontend::EmitLLVMOnly:

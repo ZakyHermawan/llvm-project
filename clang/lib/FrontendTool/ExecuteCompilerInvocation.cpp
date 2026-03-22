@@ -35,7 +35,9 @@
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/Pass/PassManager.h"
 #include "clang/CIR/Dialect/Passes.h"
+#include "clang/CIR/FrontendAction/CIRCombineAction.h"
 #include "clang/CIR/FrontendAction/CIRGenAction.h"
+#include "clang/CIR/FrontendAction/CIRSplitAction.h"
 #endif
 
 using namespace clang;
@@ -80,6 +82,20 @@ CreateFrontendBaseAction(CompilerInstance &CI) {
   case EmitCIR:
 #if CLANG_ENABLE_CIR
     return std::make_unique<cir::EmitCIRAction>();
+#else
+    CI.getDiagnostics().Report(diag::err_fe_cir_not_built);
+    return nullptr;
+#endif
+  case CIRCombine:
+#if CLANG_ENABLE_CIR
+    return std::make_unique<cir::CIRCombineAction>();
+#else
+    CI.getDiagnostics().Report(diag::err_fe_cir_not_built);
+    return nullptr;
+#endif
+  case CIRSplit:
+#if CLANG_ENABLE_CIR
+    return std::make_unique<cir::CIRSplitAction>();
 #else
     CI.getDiagnostics().Report(diag::err_fe_cir_not_built);
     return nullptr;
